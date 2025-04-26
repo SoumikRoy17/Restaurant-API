@@ -1,0 +1,27 @@
+{
+  "name": "store-monitoring-api",
+  "version": "1.0.0",
+  "description": "API for monitoring restaurant status and generating reports",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest"
+  },
+  "dependencies": {
+    "csv-parser": "^3.0.0",
+    "express": "^4.18.2",
+    "moment-timezone": "^0.5.43",
+    "uuid": "^9.0.1",
+    "node-fetch": "^2.6.12",
+    "cors": "^2.8.5",
+    "unzipper": "^0.10.14",
+    "json2csv": "^5.0.7",
+    "sqlite3": "^5.1.6",
+    "sequelize": "^6.32.1"
+  },
+  "devDependencies": {
+    "jest": "^29.6.4",
+    "nodemon": "^3.0.1"
+  }
+}

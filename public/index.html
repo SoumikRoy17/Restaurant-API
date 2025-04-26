@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store Monitoring Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-semibold text-gray-900">Store Monitoring Dashboard</h1>
+                </div>
+                <div class="flex items-center">
+                    <span id="statusIndicator" class="flex items-center">
+                        <span class="h-2 w-2 rounded-full bg-green-400 mr-2"></span>
+                        <span class="text-sm text-gray-600">System Online</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <!-- Report Generation Card -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-lg font-medium text-gray-900">Generate Report</h2>
+                    <button id="triggerBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Generate New Report
+                    </button>
+                </div>
+                <div id="triggerResult" class="hidden rounded-md p-4"></div>
+            </div>
+
+            <!-- Report Status Card -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-lg font-medium text-gray-900 mb-4">Check Report Status</h2>
+                <div class="flex gap-4 mb-4">
+                    <input type="text" id="reportId" placeholder="Enter Report ID" 
+                        class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <button id="getReportBtn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Check Status
+                    </button>
+                </div>
+                <div id="reportResult" class="hidden rounded-md p-4"></div>
+            </div>
+        </div>
+
+        <!-- Reports List -->
+        <div class="mt-6 bg-white rounded-lg shadow">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-medium text-gray-900">Recent Reports</h2>
+                    <button id="listReportsBtn" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Refresh List
+                    </button>
+                </div>
+            </div>
+            <div class="divide-y divide-gray-200" id="reportsList">
+                <div class="p-6 text-center text-gray-500">Loading reports...</div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleString('en-US', {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            });
+        }
+
+        function showNotification(element, type, message) {
+            const bgColor = type === 'success' ? 'bg-green-50' : type === 'error' ? 'bg-red-50' : 'bg-blue-50';
+            const textColor = type === 'success' ? 'text-green-800' : type === 'error' ? 'text-red-800' : 'text-blue-800';
+            const borderColor = type === 'success' ? 'border-green-400' : type === 'error' ? 'border-red-400' : 'border-blue-400';
+
+            element.className = `rounded-md p-4 ${bgColor} border ${borderColor}`;
+            element.innerHTML = `<div class="${textColor}">${message}</div>`;
+            element.classList.remove('hidden');
+        }
+
+        // Trigger Report
+        document.getElementById('triggerBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('triggerBtn');
+            const resultDiv = document.getElementById('triggerResult');
+            
+            try {
+                btn.disabled = true;
+                btn.innerHTML = 'Generating...';
+                
+                const response = await fetch(`${API_BASE}/reports`, { method: 'POST' });
+                const data = await response.json();
+                
+                showNotification(resultDiv, 'success', `
+                    Report generation started successfully!<br>
+                    <span class="font-mono text-sm mt-1 block">Report ID: ${data.report_id}</span>
+                `);
+                
+                refreshReportsList();
+            } catch (error) {
+                showNotification(resultDiv, 'error', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Generate New Report';
+            }
+        });
+
+        // Get Report
+        document.getElementById('getReportBtn').addEventListener('click', async () => {
+            const reportId = document.getElementById('reportId').value.trim();
+            const resultDiv = document.getElementById('reportResult');
+            const btn = document.getElementById('getReportBtn');
+            
+            if (!reportId) {
+                showNotification(resultDiv, 'error', 'Please enter a report ID');
+                return;
+            }
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = 'Checking...';
+                
+                const response = await fetch(`${API_BASE}/reports/${reportId}`);
+                const data = await response.json();
+                
+                if (data.status === ReportStatus.RUNNING) {
+                    showNotification(resultDiv, 'info', 'Report is still being generated...');
+                } else if (data.status === ReportStatus.COMPLETE) {
+                    showNotification(resultDiv, 'success', `
+                        Report is complete!<br>
+                        <a href="${data.data.url}" class="text-blue-600 hover:text-blue-800 underline mt-2 inline-block" target="_blank">
+                            Download Report
+                        </a>
+                    `);
+                } else {
+                    showNotification(resultDiv, 'error', `Report generation failed: ${data.error}`);
+                }
+            } catch (error) {
+                showNotification(resultDiv, 'error', error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = 'Check Status';
+            }
+        });
+
+        // List Reports
+        async function refreshReportsList() {
+            const listDiv = document.getElementById('reportsList');
+            
+            try {
+                const response = await fetch(`${API_BASE}/reports`);
+                const data = await response.json();
+                
+                if (data.reports.length === 0) {
+                    listDiv.innerHTML = `
+                        <div class="p-6 text-center text-gray-500">
+                            No reports generated yet
+                        </div>
+                    `;
+                    return;
+                }
+                
+                listDiv.innerHTML = data.reports.map(report => `
+                    <div class="p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-mono text-sm text-gray-500">ID: ${report.report_id}</div>
+                                <div class="mt-1 text-sm text-gray-900">
+                                    Started: ${formatDate(report.startTime)}
+                                </div>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize
+                                    ${report.status === 'COMPLETE' ? 'bg-green-100 text-green-800' :
+                                      report.status === 'RUNNING' ? 'bg-blue-100 text-blue-800' :
+                                      'bg-red-100 text-red-800'}">
+                                    ${report.status.toLowerCase()}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                listDiv.innerHTML = `
+                    <div class="p-6 text-center text-red-500">
+                        Error loading reports: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize
+        document.getElementById('listReportsBtn').addEventListener('click', refreshReportsList);
+        refreshReportsList();
+
+        // Health check polling
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                const indicator = document.getElementById('statusIndicator');
+                if (data.status === 'ok') {
+                    indicator.innerHTML = `
+                        <span class="h-2 w-2 rounded-full bg-green-400 mr-2"></span>
+                        <span class="text-sm text-gray-600">System Online</span>
+                    `;
+                } else {
+                    indicator.innerHTML = `
+                        <span class="h-2 w-2 rounded-full bg-red-400 mr-2"></span>
+                        <span class="text-sm text-gray-600">System Offline</span>
+                    `;
+                }
+            } catch (error) {
+                const indicator = document.getElementById('statusIndicator');
+                indicator.innerHTML = `
+                    <span class="h-2 w-2 rounded-full bg-red-400 mr-2"></span>
+                    <span class="text-sm text-gray-600">System Offline</span>
+                `;
+            }
+        }
+
+        // Check health status every 30 seconds
+        checkHealth();
+        setInterval(checkHealth, 30000);
+    </script>
+</body>
+</html>
